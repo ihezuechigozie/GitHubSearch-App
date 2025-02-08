@@ -16,6 +16,7 @@ const GitHubSearch = () => {
     }
 
     try {
+      
       const response = await fetch(`https://api.github.com/search/users?q=${username}`);
       if (!response.ok) {
         throw new Error(`Error: ${response.status} - ${response.statusText}`);
@@ -25,17 +26,27 @@ const GitHubSearch = () => {
       if (data.items.length === 0) {
         setError("No users found.");
       } else {
-        setUsers(data.items);
+    
+        const userDetails = await Promise.all(
+          data.items.slice(0, 5).map(async (user) => {
+            const userResponse = await fetch(user.url);
+            const userData = await userResponse.json();
+            
+            
+            const starredResponse = await fetch(`${user.url}/starred`);
+            const starredData = await starredResponse.json();
+            
+            return { 
+              ...userData, 
+              starred_count: starredData.length 
+            };
+          })
+        );
+        
+        setUsers(userDetails);
       }
     } catch (err) {
       setError(err.message);
-    }
-  };
-
- 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      fetchUsers();
     }
   };
 
@@ -50,7 +61,7 @@ const GitHubSearch = () => {
           placeholder="Enter GitHub username..."
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          onKeyPress={handleKeyPress}
+          onKeyPress={(e) => e.key === "Enter" && fetchUsers()}
         />
         <button className="btn btn-primary" onClick={fetchUsers}>
           Search
@@ -66,10 +77,19 @@ const GitHubSearch = () => {
               <div className="card shadow-sm">
                 <img src={user.avatar_url} className="card-img-top" alt="Avatar" />
                 <div className="card-body">
-                  <h5 className="card-title">{user.login}</h5>
-                  <a href={user.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-dark">
-                    View Profile
-                  </a>
+                  <h5 className="card-title">{user.name || user.login}</h5>
+                  <p className="card-text">{user.bio || "No bio available"}</p>
+                  <ul className="list-group list-group-flush">
+                    <li className="list-group-item"><strong>Repositories:</strong> {user.public_repos}</li>
+                    <li className="list-group-item"><strong>Followers:</strong> {user.followers}</li>
+                    <li className="list-group-item"><strong>Following:</strong> {user.following}</li>
+                    <li className="list-group-item"><strong>Stars:</strong> {user.starred_count}</li>
+                    <li className="list-group-item">
+                      <a href={user.html_url} target="_blank" rel="noopener noreferrer" className="btn btn-dark">
+                        View Profile
+                      </a>
+                    </li>
+                  </ul>
                 </div>
               </div>
             </div>
